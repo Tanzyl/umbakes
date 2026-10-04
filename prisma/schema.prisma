@@ -1,0 +1,230 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model AdminUser {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String    @default("Admin")
+  passwordHash String
+  sessions     Session[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+/// Server-side session. `id` is the SHA-256 of the cookie token, so a DB leak can't be replayed.
+model Session {
+  id        String    @id
+  userId    String
+  user      AdminUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+/// One row per uploaded file. The file lives at UPLOAD_DIR/<path>; only metadata is stored here.
+/// Every table that points at a MediaAsset uses onDelete: Restrict, so the database itself
+/// refuses to delete an asset that is still in use.
+model MediaAsset {
+  id           String   @id @default(cuid())
+  path         String   @unique // e.g. "products/8f1c….webp"
+  folder       String // products | categories | gallery | site | reviews | instagram
+  alt          String   @default("")
+  width        Int
+  height       Int
+  size         Int
+  originalName String   @default("")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  categories      Category[]
+  productImages   ProductImage[]
+  galleryImages   GalleryImage[]
+  reviews         Review[]
+  instagramPosts  InstagramPost[]
+  sections        HomepageSection[]
+  settingsLogo    WebsiteSettings[] @relation("logo")
+  settingsFavicon WebsiteSettings[] @relation("favicon")
+  settingsOg      WebsiteSettings[] @relation("ogImage")
+
+  @@index([folder])
+}
+
+enum CategoryKind {
+  CAKE // shown under /cakes (occasion / custom-cake types)
+  MENU // shown under /menu (cupcakes, brownies, …)
+}
+
+model Category {
+  id          String       @id @default(cuid())
+  name        String
+  slug        String       @unique
+  kind        CategoryKind
+  description String       @default("")
+  imageId     String?
+  image       MediaAsset?  @relation(fields: [imageId], references: [id], onDelete: Restrict)
+  sortOrder   Int          @default(0)
+  isVisible   Boolean      @default(true)
+  showOnHome  Boolean      @default(true)
+  products    Product[]
+  gallery     GalleryItem[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([kind, isVisible, sortOrder])
+}
+
+model Product {
+  id              String         @id @default(cuid())
+  ref             String         @unique // reference ID shown to customers, e.g. CAKE-102
+  name            String
+  slug            String         @unique
+  description     String         @default("")
+  customization   String         @default("") // flavours, sizes, what can be personalised
+  categoryId      String
+  category        Category       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  /// Whole rupees. Null = "price on request".
+  price           Int?
+  priceIsStarting Boolean        @default(false)
+  isFeatured      Boolean        @default(false)
+  isPopular       Boolean        @default(false)
+  isNew           Boolean        @default(false)
+  isSeasonal      Boolean        @default(false)
+  isAvailable     Boolean        @default(true)
+  isPublished     Boolean        @default(true)
+  sortOrder       Int            @default(0)
+  /// Optional extra line added to this product's WhatsApp order message.
+  whatsappNote    String         @default("")
+  images          ProductImage[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([categoryId, isPublished, sortOrder])
+  @@index([isPublished, isFeatured])
+}
+
+model ProductImage {
+  id        String     @id @default(cuid())
+  productId String
+  product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  mediaId   String
+  media     MediaAsset @relation(fields: [mediaId], references: [id], onDelete: Restrict)
+  sortOrder Int        @default(0)
+
+  @@index([productId, sortOrder])
+}
+
+model GalleryItem {
+  id          String         @id @default(cuid())
+  ref         String         @unique // e.g. GAL-007, quoted in WhatsApp messages
+  title       String
+  description String         @default("")
+  categoryId  String?
+  category    Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  isFeatured  Boolean        @default(false)
+  isPublished Boolean        @default(true)
+  sortOrder   Int            @default(0)
+  images      GalleryImage[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([isPublished, sortOrder])
+}
+
+model GalleryImage {
+  id        String      @id @default(cuid())
+  itemId    String
+  item      GalleryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  mediaId   String
+  media     MediaAsset  @relation(fields: [mediaId], references: [id], onDelete: Restrict)
+  sortOrder Int         @default(0)
+
+  @@index([itemId, sortOrder])
+}
+
+/// Homepage blocks. `key` identifies which component renders it; admins edit text, image,
+/// visibility and order.
+model HomepageSection {
+  key            String      @id // hero | featuredCakes | menu | popular | occasions | gallery | about | howToOrder | reviews | instagram
+  title          String      @default("")
+  subtitle       String      @default("")
+  body           String      @default("")
+  imageId        String?
+  image          MediaAsset? @relation(fields: [imageId], references: [id], onDelete: Restrict)
+  ctaLabel       String      @default("")
+  ctaHref        String      @default("")
+  secondaryLabel String      @default("")
+  isVisible      Boolean     @default(true)
+  sortOrder      Int         @default(0)
+  updatedAt      DateTime    @updatedAt
+}
+
+/// Single row (id = 1).
+model WebsiteSettings {
+  id               Int         @id @default(1)
+  businessName     String      @default("UMBAKES")
+  tagline          String      @default("Baking Life Sweet")
+  logoId           String?
+  logo             MediaAsset? @relation("logo", fields: [logoId], references: [id], onDelete: Restrict)
+  faviconId        String?
+  favicon          MediaAsset? @relation("favicon", fields: [faviconId], references: [id], onDelete: Restrict)
+  /// International format, digits only, e.g. 923001234567. Empty = not configured yet.
+  whatsappNumber   String      @default("")
+  whatsappGreeting String      @default("Hi UMBAKES! I'd like to ask about a cake.")
+  instagramUrl     String      @default("https://www.instagram.com/umbakes_/")
+  phone            String      @default("")
+  email            String      @default("")
+  location         String      @default("")
+  hours            String      @default("")
+  seoTitle         String      @default("UMBAKES | Custom Cakes & Bakes")
+  seoDescription   String      @default("Beautifully crafted custom cakes and sweet treats, designed especially for your special moments. Order on WhatsApp.")
+  ogImageId        String?
+  ogImage          MediaAsset? @relation("ogImage", fields: [ogImageId], references: [id], onDelete: Restrict)
+  footerText       String      @default("Custom cakes and sweet treats, made with love.")
+  primaryColor     String      @default("#1f5c58")
+  accentColor      String      @default("#c49a5a")
+  maintenanceMode  Boolean     @default(false)
+  updatedAt        DateTime    @updatedAt
+}
+
+model Review {
+  id         String      @id @default(cuid())
+  name       String
+  text       String
+  rating     Int?
+  photoId    String?
+  photo      MediaAsset? @relation(fields: [photoId], references: [id], onDelete: Restrict)
+  isApproved Boolean     @default(false)
+  sortOrder  Int         @default(0)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@index([isApproved, sortOrder])
+}
+
+/// Admin-curated Instagram showcase (not a live feed).
+model InstagramPost {
+  id        String     @id @default(cuid())
+  mediaId   String
+  media     MediaAsset @relation(fields: [mediaId], references: [id], onDelete: Restrict)
+  postUrl   String     @default("")
+  isVisible Boolean    @default(true)
+  sortOrder Int        @default(0)
+  createdAt DateTime   @default(now())
+}
+
+/// Lightweight audit trail for the dashboard's "recent changes" list.
+model ActivityLog {
+  id        String   @id @default(cuid())
+  action    String // e.g. "Updated product"
+  target    String // e.g. "Floral Birthday Cake"
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}

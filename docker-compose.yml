@@ -1,0 +1,14 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: umbakes
+      POSTGRES_PASSWORD: umbakes
+      POSTGRES_DB: umbakes
+    ports:
+      - "5436:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+volumes:
+  pgdata:

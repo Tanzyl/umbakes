@@ -1,0 +1,104 @@
+@import "tailwindcss";
+
+/*
+  UMBAKES palette, taken from the Instagram badge logo and menu: deep teal, warm cream, soft gold.
+  --brand and --accent can be overridden from Admin > Settings (set inline on <body>);
+  every other shade is derived from them, so the theme stays coherent.
+*/
+:root {
+  --brand: #1f5c58;
+  --accent: #c49a5a;
+}
+
+@theme inline {
+  --color-brand: var(--brand);
+  --color-brand-dark: color-mix(in oklab, var(--brand) 72%, black);
+  --color-brand-soft: color-mix(in oklab, var(--brand) 10%, #fbf7f0);
+  --color-accent: var(--accent);
+  --color-accent-ink: color-mix(in oklab, var(--accent) 62%, #2a1d0c); /* gold dark enough for text on cream */
+  --color-accent-soft: color-mix(in oklab, var(--accent) 18%, #fbf7f0);
+  --color-cream: #fbf7f0;
+  --color-ivory: #fffdf9;
+  --color-blush: #f4e6df;
+  --color-ink: #1f2b29;
+  --color-muted: #5b6866;
+  --color-line: #e8dfd2;
+
+  --font-sans: var(--font-jost), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-cormorant), ui-serif, Georgia, serif;
+  --font-script: var(--font-allura), cursive;
+
+  --shadow-soft: 0 1px 2px rgb(31 43 41 / 0.04), 0 8px 24px -8px rgb(31 43 41 / 0.12);
+  --shadow-lift: 0 2px 4px rgb(31 43 41 / 0.05), 0 18px 40px -12px rgb(31 43 41 / 0.22);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-cream text-ink font-sans antialiased;
+    font-size: 16px;
+    line-height: 1.6;
+  }
+  h1, h2, h3 {
+    @apply font-display text-ink;
+    line-height: 1.1;
+    text-wrap: balance;
+  }
+  :focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--accent) 35%, white);
+  }
+}
+
+/* Custom utilities (Tailwind v4 @utility, so they can be combined and overridden like built-ins). */
+@utility container-x {
+  @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+}
+@utility btn {
+  @apply inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-full px-6 text-[15px] font-medium tracking-wide transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60;
+}
+@utility btn-primary {
+  @apply btn bg-brand text-white shadow-soft hover:bg-brand-dark hover:shadow-lift;
+}
+@utility btn-outline {
+  @apply btn border border-brand/30 bg-ivory/70 text-brand hover:border-brand hover:bg-brand-soft;
+}
+@utility btn-wa {
+  /* WhatsApp green, darkened for 4.5:1 contrast with white text */
+  @apply btn bg-[#1f7a4d] text-white shadow-soft hover:bg-[#17603c] hover:shadow-lift;
+}
+@utility btn-ghost {
+  @apply btn px-4 text-brand hover:bg-brand-soft;
+}
+@utility eyebrow {
+  @apply text-xs font-medium tracking-[0.22em] text-accent-ink uppercase;
+}
+@utility card {
+  @apply rounded-3xl border border-line/70 bg-ivory shadow-soft;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes dialog-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
